@@ -22,7 +22,7 @@ def load_question_answer(opts):
 
 	return data
 #def get_ques_vocab(data_dir):
-	
+#abc	
 
 
 
