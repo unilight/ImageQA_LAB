@@ -45,12 +45,17 @@ def main():
 	}
 	
 	# tf graph input
-	image_f = tf.placeholder('float32',[ None, modOpts['img_feature_length'] ], name = 'img')
-	question = tf.placeholder('float32',[None,modOpts['lstm_steps'] - 1], name = "question")
+	
+	# image_f = tf.placeholder('float32',[ None, modOpts['img_feature_length'] ], name = 'img')
+	# question = tf.placeholder('float32',[None,modOpts['lstm_steps'] - 1], name = "question")
+
+	# (batch_size, 56, 512)
+	lstm_input = tf.placeholder(tf.float32, [None, modOpts['lstm_steps']-1, modOpts['embedding_size']])
+
 	answer = tf.placeholder('float32', [None, modOpts['ans_vocab_size']], name = "answer")
 
 	# word embedding
-	word_embedding = tf.Variable(tf.random_uniform([modOpts['q_vocab_size'] + 1, options['embedding_size']],
+	word_embedding = tf.Variable(tf.random_uniform([modOpts['q_vocab_size'] + 1, modOpts['embedding_size']],
 		-1.0, 1.0), name = 'Wemb')
 	
 
