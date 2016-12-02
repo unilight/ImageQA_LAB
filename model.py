@@ -11,3 +11,5 @@ class Model:
 	def __init__(self, options):
 		with tf.device('/cpu:0'):
 			self.options = options
+
+			
