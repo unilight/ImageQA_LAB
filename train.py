@@ -25,12 +25,13 @@ def main():
 		exit()
 
 	print "Reading QA DATA"
-	# TODO : load QA
-	qa_data = {}
+	qa_data = load_question_answer(args)
 
 	print "Reading Image features"
 	image_feat = data_loader.load_image_feat(args.data_dir)
 	print "Image features", image_feat.shape
+
+	ans_map = { qa_data['answer_vocab'][ans] : ans for ans in qa_data['answer_vocab']}
 
 	modOpts = {
 		'num_lstm_layers' : args.num_lstm_layers,
@@ -77,20 +78,6 @@ def main():
 	'out': tf.Variable(tf.constant(0.1, shape=[modOpts['ans_vocab_size'], ]))
 	}
 
-	'''
-	#TODO : these should be processed somewhere else
-	lstm_input = []
-	image_emb = tf.matmul(image_f, weights['img_in']) + biases['img_in']
-	image_emb = tf.nn.tanh(image_embed)
-	image_emb = tf.nn.dropout(image_embed, modOpts['image_dropout'], name = "vis")
-	lstm_input.append(image_emb)
-
-	for i in range(modOpts['lstm_steps']-1):
-		word_emb = tf.nn.embedding_lookup(word_embedding, question[:,i])
-		word_emb = tf.nn.dropout(word_emb, modOpts['word_emb_dropout'], name = "word_emb" + str(i))
-		lstm_input.append(word_emb)
-	'''
-
 	def LSTM(opts, X, weights, biases):
 
 		# input to cell
@@ -119,13 +106,76 @@ def main():
 
 		return results
 
-	pred = LSTM(modOpts, lstm_input, weights, biases)
+	logits = LSTM(modOpts, lstm_input, weights, biases)	
+	
+	answer_probab = tf.nn.softmax(logits)
+	predictions = tf.argmax(answer_probab,1)
+	
+	ce = tf.nn.softmax_cross_entropy_with_logits(logits, lstm_answer)
+	correct_predictions = tf.equal(tf.argmax(answer_probab,1), tf.argmax(lstm_answer,1))
+	accuracy = tf.reduce_mean(tf.cast(correct_predictions, tf.float32))
+	loss = tf.reduce_sum(ce)
+	
+	train_op = tf.train.AdamOptimizer(modOpts['learning_rate']).minimize(loss)
 
-	lstm_model = model.Model(modOpts)
-	input_tensors, t_loss, t_accuracy, t_p = lstm_model.build_model()
-	train_op = tf.train.AdamOptimizer(args.learning_rate).minimize(t_loss)
 	sess = tf.InteractiveSession()
 	tf.initialize_all_variables().run()
+
+	for i in xrange(modOpts['epochs']):
+		batch_no = 0
+
+		while (batch_no*modOpts['batch_size']) < len(qa_data['training']):
+			img_q, answer = get_training_batch(batch_no, modOpts['batch_size'], image_feat, qa_data)
+			sess.run([train_op], feed_dict={
+					lstm_input:img_q,
+					lstm_answer:answer
+				}
+			)
+			batch_no += 1
+			if modOpts['debug']:
+				for idx, p in enumerate(pred):
+					print ans_map[p], ans_map[ np.argmax(answer[idx])]
+
+				print "Loss", loss, batch_no, i
+				print "Accuracy", accuracy
+				print "---------------"
+			else:
+				print "Loss", loss_value, batch_no, i
+				print "Training Accuracy", accuracy
+
+
+def get_training_batch(batch_no, batch_size, image_feat, qa_data):
+	qa = qa_data['training']
+
+	si = (batch_no * batch_size)%len(qa)
+	ei = min(len(qa), si + batch_size)
+	n = ei - si
+	sentence = np.ndarray( (n, qa_data['max_question_length']), dtype = 'int32')
+	answer = np.zeros( (n, len(qa_data['answer_vocab'])))
+	fc7 = np.ndarray( (n,4096) )
+
+	count = 0
+	for i in range(si, ei):
+		sentence[count,:] = qa[i]['question'][:]
+		answer[count, qa[i]['answer']] = 1.0
+		fc7_index = image_id_map[ qa[i]['image_id'] ]
+		fc7[count,:] = fc7_features[fc7_index][:]
+		count += 1
+	
+	#TODO : put image as first word
+	lstm_input = []
+	image_emb = tf.matmul(image_f, weights['img_in']) + biases['img_in']
+	image_emb = tf.nn.tanh(image_embed)
+	image_emb = tf.nn.dropout(image_embed, modOpts['image_dropout'], name = "vis")
+	lstm_input.append(image_emb)
+
+	for i in range(modOpts['lstm_steps']-1):
+		word_emb = tf.nn.embedding_lookup(word_embedding, question[:,i])
+		word_emb = tf.nn.dropout(word_emb, modOpts['word_emb_dropout'], name = "word_emb" + str(i))
+		lstm_input.append(word_emb)
+
+	return sentence, answer, fc7
+
 
 if __name__ == '__main__':
 	main()
