@@ -60,7 +60,7 @@ def main():
 	# Define weights and biases
 	weights = {
 	# (4096, 512)
-	'img_in': tf.Variable(tf.random_normal([modOpts['img_feature_length'], modOpts['embedding_size']])),
+	'img_emb': tf.Variable(tf.random_normal([modOpts['img_feature_length'], modOpts['embedding_size']])),
 	# (512, 512)
 	'input_hidden': tf.Variable(tf.random_normal([modOpts['embedding_size'], modOpts['rnn_size']])),
 	# (512, 431)
@@ -125,7 +125,7 @@ def main():
 		batch_no = 0
 
 		while (batch_no*modOpts['batch_size']) < len(qa_data['training']):
-			img_q, answer = get_training_batch(batch_no, modOpts['batch_size'], image_feat, qa_data)
+			img_q, answer = get_training_batch(batch_no, modOpts, image_feat, qa_data, weights, biases, word_embedding)
 			sess.run([train_op], feed_dict={
 					lstm_input:img_q,
 					lstm_answer:answer
@@ -144,37 +144,36 @@ def main():
 				print "Training Accuracy", accuracy
 
 
-def get_training_batch(batch_no, batch_size, image_feat, qa_data):
-	qa = qa_data['training']
+def get_training_batch(batch_no, opts, image_feat, qa_data, weights, biases, word_embedding):
+	qa = qa_data['training_data']
 
-	si = (batch_no * batch_size)%len(qa)
-	ei = min(len(qa), si + batch_size)
+	si = (batch_no * opts['batch_size'])%len(qa)
+	ei = min(len(qa), si + opts['batch_size'])
 	n = ei - si
-	sentence = np.ndarray( (n, qa_data['max_question_length']), dtype = 'int32')
+	img_q = np.ndarray( (n, qa_data['max_question_length']+1, opts['rnn_size']), dtype = tf.float32)
+	sentence = np.ndarray( (qa_data['max_question_length']), dtype = 'int32')
 	answer = np.zeros( (n, len(qa_data['answer_vocab'])))
-	fc7 = np.ndarray( (n,4096) )
+	img = np.ndarray( (4096) )
 
 	count = 0
 	for i in range(si, ei):
-		sentence[count,:] = qa[i]['question'][:]
 		answer[count, qa[i]['answer']] = 1.0
-		fc7_index = image_id_map[ qa[i]['image_id'] ]
-		fc7[count,:] = fc7_features[fc7_index][:]
+
+		img = image_feat[ qa[i]['image_id'] ].toarray()[0]
+		image_emb = tf.matmul(img, weights['img_in']) + biases['img_in']
+		image_emb = tf.nn.tanh(image_emb)
+		image_emb = tf.nn.dropout(image_emb, opts['image_dropout'], name = "vis")
+		img_q[count, 0, :] = image_emb
+
+		sentence = qa[i]['question'][:]
+		for i in range(55):
+			word_emb = tf.nn.embedding_lookup(word_embedding, sentence[i])
+			word_emb = tf.nn.dropout(word_embedding, opts['word_emb_dropout'], name = "word_emb" + str(i))
+			img_q[count, i+1, :] = word_emb
+
 		count += 1
-	
-	#TODO : put image as first word
-	lstm_input = []
-	image_emb = tf.matmul(image_f, weights['img_in']) + biases['img_in']
-	image_emb = tf.nn.tanh(image_embed)
-	image_emb = tf.nn.dropout(image_embed, modOpts['image_dropout'], name = "vis")
-	lstm_input.append(image_emb)
 
-	for i in range(modOpts['lstm_steps']-1):
-		word_emb = tf.nn.embedding_lookup(word_embedding, question[:,i])
-		word_emb = tf.nn.dropout(word_emb, modOpts['word_emb_dropout'], name = "word_emb" + str(i))
-		lstm_input.append(word_emb)
-
-	return sentence, answer, fc7
+	return img_q, answer
 
 
 if __name__ == '__main__':
