@@ -161,11 +161,12 @@ def get_training_batch(batch_no, opts, image_feat, qa_data, weights, biases, wor
 	count = 0
 	for i in range(si, ei):
 		answer[count, qa[i]['answer']] = 1.0
-
 		img = image_feat[ qa[i]['image_id'] ].toarray()[0]
+		img = img.reshape((1, 4096))
 		image_emb = tf.matmul(img, weights['img_emb']) + biases['img_emb']
 		image_emb = tf.nn.tanh(image_emb)
 		image_emb = tf.nn.dropout(image_emb, opts['image_dropout'], name = "vis")
+		#len(img_q[count,0] = 512)
 		img_q[count, 0, :] = image_emb
 
 		sentence = qa[i]['question'][:]
