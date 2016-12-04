@@ -3,6 +3,7 @@ import model
 import data_loader
 import argparse
 import numpy as np
+import parse
 
 def main():
 	parser = argparse.ArgumentParser()
@@ -25,7 +26,7 @@ def main():
 		exit()
 
 	print "Reading QA DATA"
-	qa_data = load_question_answer(args)
+	qa_data = parse.load_question_answer(args)
 
 	print "Reading Image features"
 	image_feat = data_loader.load_image_feat(args.data_dir)
@@ -34,6 +35,8 @@ def main():
 	ans_map = { qa_data['answer_vocab'][ans] : ans for ans in qa_data['answer_vocab']}
 
 	modOpts = {
+		# batch_size should not be in here
+		'batch_size' : args.batch_size,
 		'num_lstm_layers' : args.num_lstm_layers,
 		'rnn_size' : args.rnn_size,
 		'embedding_size' : args.embedding_size,
@@ -64,18 +67,18 @@ def main():
 	# (512, 512)
 	'input_hidden': tf.Variable(tf.random_normal([modOpts['embedding_size'], modOpts['rnn_size']])),
 	# (512, 431)
-	'hidden_output': tf.Variable(tf.random_normal([modOpts['rnn_size'], modOpts['ans_vocab_size']])
+	'hidden_output': tf.Variable(tf.random_normal([modOpts['rnn_size'], modOpts['ans_vocab_size']]))
 	}
 
 	biases = {
 	# (512, )
-	'img_in': tf.Variable(tf.constant(0.1, shape=[modOpts['embedding_size'], ])),
+	'img_emb': tf.Variable(tf.constant(0.1, shape=[modOpts['embedding_size'], ])),
 
 	# (512, )
 	'input_hidden': tf.Variable(tf.constant(0.1, shape=[modOpts['rnn_size'], ])),
 	
 	# (431, )
-	'out': tf.Variable(tf.constant(0.1, shape=[modOpts['ans_vocab_size'], ]))
+	'hidden_output': tf.Variable(tf.constant(0.1, shape=[modOpts['ans_vocab_size'], ]))
 	}
 
 	def LSTM(opts, X, weights, biases):
@@ -88,9 +91,9 @@ def main():
 
 		# into hidden
 		# X_in = (batch_size * 56 steps, 512 hidden)
-		X_in = tf.matmul(X, weights['input_hidden']) + biases['input_hiddwn']
+		X_in = tf.matmul(X, weights['input_hidden']) + biases['input_hidden']
 		# X_in ==> (batch_size, 56 steps, 512 hidden)
-		X_in = tf.reshape(X_in, [-1, opts['lstn_steps']-1, opts['rnn_size']])
+		X_in = tf.reshape(X_in, [-1, opts['lstm_steps']-1, opts['rnn_size']])
 
 		# cell
 		###########################
@@ -116,15 +119,15 @@ def main():
 	accuracy = tf.reduce_mean(tf.cast(correct_predictions, tf.float32))
 	loss = tf.reduce_sum(ce)
 	
-	train_op = tf.train.AdamOptimizer(modOpts['learning_rate']).minimize(loss)
+	train_op = tf.train.AdamOptimizer(args.learning_rate).minimize(loss)
 
 	sess = tf.InteractiveSession()
 	tf.initialize_all_variables().run()
 
-	for i in xrange(modOpts['epochs']):
+	for i in xrange(args.epochs):
 		batch_no = 0
 
-		while (batch_no*modOpts['batch_size']) < len(qa_data['training']):
+		while (batch_no*modOpts['batch_size']) < len(qa_data['training_data']):
 			img_q, answer = get_training_batch(batch_no, modOpts, image_feat, qa_data, weights, biases, word_embedding)
 			sess.run([train_op], feed_dict={
 					lstm_input:img_q,
@@ -132,7 +135,7 @@ def main():
 				}
 			)
 			batch_no += 1
-			if modOpts['debug']:
+			if args.debug:
 				for idx, p in enumerate(pred):
 					print ans_map[p], ans_map[ np.argmax(answer[idx])]
 
@@ -140,7 +143,7 @@ def main():
 				print "Accuracy", accuracy
 				print "---------------"
 			else:
-				print "Loss", loss_value, batch_no, i
+				print "Loss", loss, batch_no, i
 				print "Training Accuracy", accuracy
 
 
@@ -150,7 +153,7 @@ def get_training_batch(batch_no, opts, image_feat, qa_data, weights, biases, wor
 	si = (batch_no * opts['batch_size'])%len(qa)
 	ei = min(len(qa), si + opts['batch_size'])
 	n = ei - si
-	img_q = np.ndarray( (n, qa_data['max_question_length']+1, opts['rnn_size']), dtype = tf.float32)
+	img_q = np.ndarray( (n, qa_data['max_question_length']+1, opts['rnn_size']), dtype = 'float32')
 	sentence = np.ndarray( (qa_data['max_question_length']), dtype = 'int32')
 	answer = np.zeros( (n, len(qa_data['answer_vocab'])))
 	img = np.ndarray( (4096) )
@@ -160,7 +163,7 @@ def get_training_batch(batch_no, opts, image_feat, qa_data, weights, biases, wor
 		answer[count, qa[i]['answer']] = 1.0
 
 		img = image_feat[ qa[i]['image_id'] ].toarray()[0]
-		image_emb = tf.matmul(img, weights['img_in']) + biases['img_in']
+		image_emb = tf.matmul(img, weights['img_emb']) + biases['img_emb']
 		image_emb = tf.nn.tanh(image_emb)
 		image_emb = tf.nn.dropout(image_emb, opts['image_dropout'], name = "vis")
 		img_q[count, 0, :] = image_emb

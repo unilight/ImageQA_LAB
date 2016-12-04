@@ -34,5 +34,5 @@ def get_answer_vocab(data_dir):
 model_options = {
 	'num_lstm_layers' : 1
 }
-load_question_answer(model_options)
+# load_question_answer(model_options)
 		
