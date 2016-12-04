@@ -167,13 +167,14 @@ def get_training_batch(batch_no, opts, image_feat, qa_data, weights, biases, wor
 		image_emb = tf.nn.tanh(image_emb)
 		image_emb = tf.nn.dropout(image_emb, opts['image_dropout'], name = "vis")
 		#len(img_q[count,0] = 512)
-		img_q[count, 0, :] = image_emb
+		print image_emb.get_shape()
+		img_q[count, 0, :] = image_emb.eval()
 
 		sentence = qa[i]['question'][:]
 		for i in range(55):
 			word_emb = tf.nn.embedding_lookup(word_embedding, sentence[i])
 			word_emb = tf.nn.dropout(word_embedding, opts['word_emb_dropout'], name = "word_emb" + str(i))
-			img_q[count, i+1, :] = word_emb
+			img_q[count, i+1, :] = word_emb.eval()
 
 		count += 1
 
