@@ -120,8 +120,9 @@ def main():
 	loss = tf.reduce_sum(ce)
 	
 	train_op = tf.train.AdamOptimizer(args.learning_rate).minimize(loss)
+	gpu_options = tf.GPUOptions(per_process_gpu_memory_fraction=0.5)
 
-	sess = tf.InteractiveSession()
+	sess = tf.InteractiveSession(config=tf.ConfigProto(gpu_options=gpu_options))
 	tf.initialize_all_variables().run()
 
 	for i in xrange(args.epochs):
@@ -166,14 +167,12 @@ def get_training_batch(batch_no, opts, image_feat, qa_data, weights, biases, wor
 		image_emb = tf.matmul(img, weights['img_emb']) + biases['img_emb']
 		image_emb = tf.nn.tanh(image_emb)
 		image_emb = tf.nn.dropout(image_emb, opts['image_dropout'], name = "vis")
-		#len(img_q[count,0] = 512)
-		print image_emb.get_shape()
 		img_q[count, 0, :] = image_emb.eval()
 
 		sentence = qa[i]['question'][:]
 		for i in range(55):
-			word_emb = tf.nn.embedding_lookup(word_embedding, sentence[i])
-			word_emb = tf.nn.dropout(word_embedding, opts['word_emb_dropout'], name = "word_emb" + str(i))
+			word_emb = tf.nn.embedding_lookup(word_embedding, int(sentence[i]))
+			word_emb = tf.nn.dropout(word_emb, opts['word_emb_dropout'], name = "word_emb" + str(i))
 			img_q[count, i+1, :] = word_emb.eval()
 
 		count += 1
