@@ -9,15 +9,15 @@ def main():
 	parser = argparse.ArgumentParser()
 	parser.add_argument('--num_lstm_layers', type=int, default=2, help='num_lstm_layers')
 	parser.add_argument('--img_feature_length', type=int, default=4096, help='img_feature_length')
-	parser.add_argument('--rnn_size', type=int, default=512, help='rnn_size')
+	parser.add_argument('--rnn_size', type=int, default=2, help='rnn_size')
 	parser.add_argument('--embedding_size', type=int, default=512, help='embedding_size'),
 	parser.add_argument('--word_emb_dropout', type=float, default=0.5, help='word_emb_dropout')
 	parser.add_argument('--image_dropout', type=float, default=0.5, help='image_dropout')
 	parser.add_argument('--data_dir', type=str, default=None, help='Data directory')
-	parser.add_argument('--batch_size', type=int, default=200, help='Batch Size')
+	parser.add_argument('--batch_size', type=int, default=10, help='Batch Size')
 	parser.add_argument('--learning_rate', type=float, default=0.001, help='Batch Size')
-	parser.add_argument('--epochs', type=int, default=200, help='Expochs')
-	parser.add_argument('--debug', type=bool, default=False, help='Debug')
+	parser.add_argument('--epochs', type=int, default=20, help='Expochs')
+	parser.add_argument('--debug', type=bool, default=True, help='Debug')
 	parser.add_argument('--resume_model', type=str, default=None,help='Trained Model Path')
 
 	args = parser.parse_args()
@@ -47,10 +47,10 @@ def main():
 		'q_vocab_size' : len(qa_data['question_vocab']),
 		'ans_vocab_size' : len(qa_data['answer_vocab'])
 	}
-	
+	print modOpts['lstm_steps']
 	# tf graph input
 	# (batch_size, 56, 512)
-	lstm_input = tf.placeholder(tf.float32, [None, modOpts['lstm_steps']-1, modOpts['embedding_size']])
+	lstm_input = tf.placeholder(tf.float32, [None, modOpts['lstm_steps'], modOpts['embedding_size']])
 	# (batch_size, 431)
 	lstm_answer = tf.placeholder(tf.float32, [None, modOpts['ans_vocab_size']], name = "answer")
 
@@ -93,7 +93,7 @@ def main():
 		# X_in = (batch_size * 56 steps, 512 hidden)
 		X_in = tf.matmul(X, weights['input_hidden']) + biases['input_hidden']
 		# X_in ==> (batch_size, 56 steps, 512 hidden)
-		X_in = tf.reshape(X_in, [-1, opts['lstm_steps']-1, opts['rnn_size']])
+		X_in = tf.reshape(X_in, [-1, opts['lstm_steps'], opts['rnn_size']])
 
 		# cell
 		###########################
@@ -115,7 +115,7 @@ def main():
 	predictions = tf.argmax(answer_probab,1)
 	
 	ce = tf.nn.softmax_cross_entropy_with_logits(logits, lstm_answer)
-	correct_predictions = tf.equal(tf.argmax(answer_probab,1), tf.argmax(lstm_answer,1))
+	correct_predictions = tf.equal(tf.argmax(logits,1), tf.argmax(lstm_answer,1))
 	accuracy = tf.reduce_mean(tf.cast(correct_predictions, tf.float32))
 	loss = tf.reduce_sum(ce)
 	
@@ -130,7 +130,7 @@ def main():
 
 		while (batch_no*modOpts['batch_size']) < len(qa_data['training_data']):
 			img_q, answer = get_training_batch(batch_no, modOpts, image_feat, qa_data, weights, biases, word_embedding)
-			sess.run([train_op], feed_dict={
+			_, loss_value, acc, pred = sess.run([train_op, loss, accuracy, predictions], feed_dict={
 					lstm_input:img_q,
 					lstm_answer:answer
 				}
@@ -138,14 +138,14 @@ def main():
 			batch_no += 1
 			if args.debug:
 				for idx, p in enumerate(pred):
-					print ans_map[p], ans_map[ np.argmax(answer[idx])]
+					print p, np.argmax(answer[idx])
 
-				print "Loss", loss, batch_no, i
-				print "Accuracy", accuracy
+				print "Loss", loss_value, batch_no, i
+				print "Accuracy", acc
 				print "---------------"
 			else:
-				print "Loss", loss, batch_no, i
-				print "Training Accuracy", accuracy
+				print "Loss", loss_value, batch_no, i
+				print "Training Accuracy", acc
 
 
 def get_training_batch(batch_no, opts, image_feat, qa_data, weights, biases, word_embedding):
@@ -154,7 +154,7 @@ def get_training_batch(batch_no, opts, image_feat, qa_data, weights, biases, wor
 	si = (batch_no * opts['batch_size'])%len(qa)
 	ei = min(len(qa), si + opts['batch_size'])
 	n = ei - si
-	img_q = np.ndarray( (n, qa_data['max_question_length']+1, opts['rnn_size']), dtype = 'float32')
+	img_q = np.ndarray( (n, qa_data['max_question_length']+1, opts['embedding_size']), dtype = 'float32')
 	sentence = np.ndarray( (qa_data['max_question_length']), dtype = 'int32')
 	answer = np.zeros( (n, len(qa_data['answer_vocab'])))
 	img = np.ndarray( (4096) )

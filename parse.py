@@ -6,7 +6,7 @@ def load_question_answer(opts):
 	for data_id in range(len(load_data[0])):
 		training_data.append({
 			'image_id' : load_data[0][data_id][0][0],
-			'question' : np.zeros(56),
+			'question' : np.zeros(55),
 			'answer' : load_data[1][data_id][0]
 			})
 		for question_id in range(55):
