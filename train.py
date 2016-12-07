@@ -14,11 +14,13 @@ def main():
 	parser.add_argument('--word_emb_dropout', type=float, default=0.5, help='word_emb_dropout')
 	parser.add_argument('--image_dropout', type=float, default=0.5, help='image_dropout')
 	parser.add_argument('--data_dir', type=str, default=None, help='Data directory')
-	parser.add_argument('--batch_size', type=int, default=10, help='Batch Size')
+	parser.add_argument('--batch_size', type=int, default=2, help='Batch Size')
 	parser.add_argument('--learning_rate', type=float, default=0.001, help='Batch Size')
-	parser.add_argument('--epochs', type=int, default=20, help='Expochs')
+	parser.add_argument('--epochs', type=int, default=10, help='Expochs')
 	parser.add_argument('--debug', type=bool, default=True, help='Debug')
 	parser.add_argument('--resume_model', type=str, default=None,help='Trained Model Path')
+
+	f = open('result.txt', 'w')
 
 	args = parser.parse_args()
 	if args.data_dir is None:
@@ -47,21 +49,20 @@ def main():
 		'q_vocab_size' : len(qa_data['question_vocab']),
 		'ans_vocab_size' : len(qa_data['answer_vocab'])
 	}
-	print modOpts['lstm_steps']
+	
 	# tf graph input
-	# (batch_size, 56, 512)
-	lstm_input = tf.placeholder(tf.float32, [None, modOpts['lstm_steps'], modOpts['embedding_size']])
+	# (batch_size, 4096)
+	lstm_image_feat = tf.placeholder(tf.float32, [modOpts['batch_size'], modOpts['img_feature_length']])
+	# (batch_size, 55)
+	lstm_q_idx = tf.placeholder(tf.float32, [modOpts['batch_size'], modOpts['lstm_steps']-1])
 	# (batch_size, 431)
 	lstm_answer = tf.placeholder(tf.float32, [None, modOpts['ans_vocab_size']], name = "answer")
 
-	# word embedding
-	# (9738, 512)
-	word_embedding = tf.Variable(tf.random_uniform([modOpts['q_vocab_size'], modOpts['embedding_size']],
-		-1.0, 1.0), name = 'Wemb')
-	
-
 	# Define weights and biases
 	weights = {
+	# (9738, 512)
+	'word_emb': tf.Variable(tf.random_uniform([modOpts['q_vocab_size'], modOpts['embedding_size']],
+		-1.0, 1.0), name = 'Wemb'),
 	# (4096, 512)
 	'img_emb': tf.Variable(tf.random_normal([modOpts['img_feature_length'], modOpts['embedding_size']])),
 	# (512, 512)
@@ -81,7 +82,29 @@ def main():
 	'hidden_output': tf.Variable(tf.constant(0.1, shape=[modOpts['ans_vocab_size'], ]))
 	}
 
-	def LSTM(opts, X, weights, biases):
+	def LSTM(opts, img_f, q_idx, weights, biases):
+		# X : (batch_size, 56, 512)
+
+		# 2D tensor with shape (batch_size, 1, 512)		
+		image_emb = tf.matmul(img_f, weights['img_emb']) + biases['img_emb']
+		image_emb = tf.nn.tanh(image_emb)
+		image_emb = tf.nn.dropout(image_emb, opts['image_dropout'], name = "vis")
+		image_emb = tf.reshape(image_emb, [-1, 1, 512])
+		print image_emb
+
+		q_idx = tf.to_int32(q_idx)
+		# 1D tensor with shape (batch_size * 55)
+		flat_q_idx = tf.reshape(q_idx, [-1])
+		print flat_q_idx
+		# 2D tensor with shape (batch_size * 55, 512)
+		flat_q_emb = tf.nn.embedding_lookup(weights['word_emb'], flat_q_idx)
+		flat_q_emb = tf.nn.dropout(flat_q_emb, opts['word_emb_dropout'])
+		# 3D tensor with shape (batch_size, 55, 512)
+		q_emb = tf.reshape(flat_q_emb, [-1, 55, 512])
+		print q_emb
+
+		X = tf.concat(1, [image_emb, q_emb], name = "finalX")
+		print X
 
 		# input to cell
 		###########################
@@ -109,7 +132,7 @@ def main():
 
 		return results
 
-	logits = LSTM(modOpts, lstm_input, weights, biases)	
+	logits = LSTM(modOpts, lstm_image_feat, lstm_q_idx, weights, biases)	
 	
 	answer_probab = tf.nn.softmax(logits)
 	predictions = tf.argmax(answer_probab,1)
@@ -120,18 +143,24 @@ def main():
 	loss = tf.reduce_sum(ce)
 	
 	train_op = tf.train.AdamOptimizer(args.learning_rate).minimize(loss)
-	gpu_options = tf.GPUOptions(per_process_gpu_memory_fraction=0.5)
+	gpu_options = tf.GPUOptions(per_process_gpu_memory_fraction=0.333)
 
-	sess = tf.InteractiveSession(config=tf.ConfigProto(gpu_options=gpu_options))
+	#sess = tf.InteractiveSession('''config=tf.ConfigProto(gpu_options=gpu_options)''')
+	sess = tf.InteractiveSession()
 	tf.initialize_all_variables().run()
+
+	saver = tf.train.Saver()
+	if args.resume_model:
+		saver.restore(sess, args.resume_model)
 
 	for i in xrange(args.epochs):
 		batch_no = 0
 
 		while (batch_no*modOpts['batch_size']) < len(qa_data['training_data']):
-			img_q, answer = get_training_batch(batch_no, modOpts, image_feat, qa_data, weights, biases, word_embedding)
+			img_f, q_idx, answer = get_training_batch(batch_no, modOpts, image_feat, qa_data)
 			_, loss_value, acc, pred = sess.run([train_op, loss, accuracy, predictions], feed_dict={
-					lstm_input:img_q,
+					lstm_image_feat:img_f,
+					lstm_q_idx:q_idx,
 					lstm_answer:answer
 				}
 			)
@@ -143,41 +172,38 @@ def main():
 				print "Loss", loss_value, batch_no, i
 				print "Accuracy", acc
 				print "---------------"
+				f.write(' '.join( ("Loss", str(loss_value), str(batch_no), str(i), '\n' ) ) )
+				f.write(' '.join( ("Accuracy", str(acc), '\n') ) )
+				f.write("---------------\n")
 			else:
 				print "Loss", loss_value, batch_no, i
 				print "Training Accuracy", acc
 
+		save_path = saver.save(sess, "Data/Models/model{}.ckpt".format(i))
+	f.close()
 
-def get_training_batch(batch_no, opts, image_feat, qa_data, weights, biases, word_embedding):
+
+def get_training_batch(batch_no, opts, image_feat, qa_data):
 	qa = qa_data['training_data']
 
 	si = (batch_no * opts['batch_size'])%len(qa)
 	ei = min(len(qa), si + opts['batch_size'])
 	n = ei - si
-	img_q = np.ndarray( (n, qa_data['max_question_length']+1, opts['embedding_size']), dtype = 'float32')
-	sentence = np.ndarray( (qa_data['max_question_length']), dtype = 'int32')
+
+	q_idx = np.ndarray( (n, qa_data['max_question_length']), dtype = 'int32')
 	answer = np.zeros( (n, len(qa_data['answer_vocab'])))
-	img = np.ndarray( (4096) )
+	img_f = np.ndarray( (n, 4096) )
 
 	count = 0
 	for i in range(si, ei):
+
 		answer[count, qa[i]['answer']] = 1.0
-		img = image_feat[ qa[i]['image_id'] ].toarray()[0]
-		img = img.reshape((1, 4096))
-		image_emb = tf.matmul(img, weights['img_emb']) + biases['img_emb']
-		image_emb = tf.nn.tanh(image_emb)
-		image_emb = tf.nn.dropout(image_emb, opts['image_dropout'], name = "vis")
-		img_q[count, 0, :] = image_emb.eval()
-
-		sentence = qa[i]['question'][:]
-		for i in range(55):
-			word_emb = tf.nn.embedding_lookup(word_embedding, int(sentence[i]))
-			word_emb = tf.nn.dropout(word_emb, opts['word_emb_dropout'], name = "word_emb" + str(i))
-			img_q[count, i+1, :] = word_emb.eval()
-
+		img_f[count, :] = image_feat[ qa[i]['image_id'] ].toarray()[0].reshape((1, 4096))
+		q_idx[count, :] = qa[i]['question'][:]
 		count += 1
 
-	return img_q, answer
+	print img_f, q_idx, answer
+	return img_f, q_idx, answer
 
 
 if __name__ == '__main__':
