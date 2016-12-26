@@ -3,12 +3,17 @@ import model
 import data_loader
 import argparse
 import numpy as np
+import pickle
 import parse
+from imp import reload
 from gensim.models import word2vec
-sentences = word2vec.Text8Corpus('./text8')
-model = word2vec.Word2Vec(sentences, size = 512, min_count = 2, workers = 4)
-load_data = np.load(open('./cocoqa/vocab-dict.npy','r'))
+
 def main():
+
+	load_data = pickle.load(open('./cocoqa/newdic', 'rb'))
+	sentences = word2vec.Text8Corpus('./text8')
+	model = word2vec.Word2Vec(sentences, size = 512, min_count = 2, workers = 4)
+	
 	parser = argparse.ArgumentParser()
 	parser.add_argument('--num_lstm_layers', type=int, default=2, help='num_lstm_layers')
 	parser.add_argument('--img_feature_length', type=int, default=4096, help='img_feature_length')
@@ -27,15 +32,15 @@ def main():
 
 	args = parser.parse_args()
 	if args.data_dir is None:
-		print 'Specify data directory path!'
+		print('Specify data directory path!')
 		exit()
 
-	print "Reading QA DATA"
+	print("Reading QA DATA")
 	qa_data = parse.load_question_answer(args)
 
-	print "Reading Image features"
+	print("Reading Image features")
 	image_feat = data_loader.load_image_feat(args.data_dir)
-	print "Image features", image_feat.shape
+	print("Image features", image_feat.shape)
 
 	ans_map = { qa_data['answer_vocab'][ans] : ans for ans in qa_data['answer_vocab']}
 
@@ -175,16 +180,16 @@ def main():
 			batch_no += 1
 			if args.debug:
 				for idx, p in enumerate(pred):
-					print p, np.argmax(answer[idx])
-				print "Loss", loss_value, batch_no, i
-				print "Accuracy", acc
-				print "---------------"
+					print(p, np.argmax(answer[idx]))
+				print("Loss", loss_value, batch_no, i)
+				print("Accuracy", acc)
+				print("---------------")
 				f.write(' '.join( ("Loss", str(loss_value), str(batch_no), str(i), '\n' ) ) )
 				f.write(' '.join( ("Accuracy", str(acc), '\n') ) )
 				f.write("---------------\n")
 			else:
-				print "Loss", loss_value, batch_no, i
-				print "Training Accuracy", acc
+				print("Loss", loss_value, batch_no, i)
+				print("Training Accuracy", acc)
 
 		#save_path = saver.save(sess, "Data/Models/model{}.ckpt".format(i))
 	f.close()
@@ -213,7 +218,7 @@ def get_training_batch(batch_no, opts, image_feat, qa_data):
 				index = 9738
 				q_vector[count,j,:] = [0] * 512
 				continue
-			final_qstr = load_data[1][index-1].strip("'")
+			final_qstr = load_data[index-1].strip("'")
 			try:
 				q_vector[count,j,:] = model[final_qstr]
 			except KeyError:
