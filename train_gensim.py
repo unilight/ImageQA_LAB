@@ -10,10 +10,6 @@ from gensim.models import word2vec
 
 def main():
 
-	load_data = pickle.load(open('./cocoqa/newdic', 'rb'))
-	sentences = word2vec.Text8Corpus('./text8')
-	model = word2vec.Word2Vec(sentences, size = 512, min_count = 2, workers = 4)
-	
 	parser = argparse.ArgumentParser()
 	parser.add_argument('--num_lstm_layers', type=int, default=2, help='num_lstm_layers')
 	parser.add_argument('--img_feature_length', type=int, default=4096, help='img_feature_length')
@@ -43,6 +39,10 @@ def main():
 	print("Image features", image_feat.shape)
 
 	ans_map = { qa_data['answer_vocab'][ans] : ans for ans in qa_data['answer_vocab']}
+
+	load_data = pickle.load(open('./cocoqa/newdic', 'rb'))
+	sentences = word2vec.Text8Corpus('./text8')
+	model = word2vec.Word2Vec(sentences, size = 512, min_count = 2, workers = 4)
 
 	modOpts = {
 		# batch_size should not be in here
@@ -85,13 +85,13 @@ def main():
 
 	biases = {
 	# (512, )
-	'img_emb': tf.Variable(tf.constant(0.1, shape=[modOpts['embedding_size'], ])),
+	'img_emb': tf.Variable(tf.zeros([modOpts['embedding_size']])),
 
 	# (512, )
-	'input_hidden': tf.Variable(tf.constant(0.1, shape=[modOpts['rnn_size'], ])),
+	'input_hidden': tf.Variable(tf.zeros([modOpts['rnn_size']])),
 	
 	# (431, )
-	'hidden_output': tf.Variable(tf.constant(0.1, shape=[modOpts['ans_vocab_size'], ]))
+	'hidden_output': tf.Variable(tf.zeros([modOpts['ans_vocab_size']]))
 	}
 
 	def LSTM(opts, img_f, q_vec, weights, biases):
@@ -166,11 +166,11 @@ def main():
 	#saver = tf.train.Saver()
 	#if args.resume_model:
 	#	saver.restore(sess, args.resume_model)
-	for i in xrange(args.epochs):
+	for i in range(args.epochs):
 		batch_no = 0
 
 		while (batch_no*modOpts['batch_size']) < len(qa_data['training_data']):
-			img_f, q_vec, answer = get_training_batch(batch_no, modOpts, image_feat, qa_data)
+			img_f, q_vec, answer = get_training_batch(batch_no, modOpts, image_feat, qa_data, load_data, model)
 			_, loss_value, acc, pred = sess.run([train_op, loss, accuracy, predictions], feed_dict={
 					lstm_image_feat:img_f,
 					lstm_q_vec:q_vec,
@@ -195,7 +195,7 @@ def main():
 	f.close()
 
 
-def get_training_batch(batch_no, opts, image_feat, qa_data):
+def get_training_batch(batch_no, opts, image_feat, qa_data, load_data, model):
 	qa = qa_data['training_data']
 
 	si = (batch_no * opts['batch_size'])%len(qa)
