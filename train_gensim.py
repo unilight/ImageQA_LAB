@@ -163,7 +163,7 @@ def main():
     #sess = tf.Session()
     tf.initialize_all_variables().run()
 
-    #saver = tf.train.Saver()
+    saver = tf.train.Saver()
     #if args.resume_model:
     #   saver.restore(sess, args.resume_model)
     for i in range(args.epochs):
@@ -191,7 +191,7 @@ def main():
                 print("Loss", loss_value, batch_no, i)
                 print("Training Accuracy", acc)
 
-        #save_path = saver.save(sess, "Data/Models/model{}.ckpt".format(i))
+        save_path = saver.save(sess, "./model/model{}.ckpt".format(i))
     f.close()
 
 
