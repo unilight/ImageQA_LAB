@@ -7,6 +7,7 @@ import pickle
 import parse
 from imp import reload
 from gensim.models import word2vec
+#import matplotlib.pyplot as plt
 
 def main():
 
@@ -166,10 +167,14 @@ def main():
     #saver = tf.train.Saver()
     #if args.resume_model:
     #   saver.restore(sess, args.resume_model)
+    #plot_acc = np.zeros(args.epochs)
+    #plot_epoch = np.zeros(args.epochs)
     for i in range(args.epochs):
         batch_no = 0
-
-        while (batch_no*modOpts['batch_size']) < len(qa_data['training_data']):
+        #plot_acc = np.zeros(args.epochs)
+        #plot_epoch = np.zeros(args.epochs)
+        #while (batch_no*modOpts['batch_size']) < len(qa_data['training_data']):
+        while (batch_no <= 1000):
             img_f, q_vec, answer = get_training_batch(batch_no, modOpts, image_feat, qa_data, load_data, model)
             _, loss_value, acc, pred = sess.run([train_op, loss, accuracy, predictions], feed_dict={
                     lstm_image_feat:img_f,
@@ -184,15 +189,41 @@ def main():
                 print("Loss", loss_value, batch_no, i)
                 print("Accuracy", acc)
                 print("---------------")
-                f.write(' '.join( ("Loss", str(loss_value), str(batch_no), str(i), '\n' ) ) )
-                f.write(' '.join( ("Accuracy", str(acc), '\n') ) )
-                f.write("---------------\n")
+                #f.write(' '.join( ("Loss", str(loss_value), str(batch_no), str(i), '\n' ) ) )
+                #f.write(' '.join( ("Accuracy", str(acc), '\n') ) )
+                #f.write("---------------\n")
             else:
                 print("Loss", loss_value, batch_no, i)
                 print("Training Accuracy", acc)
-
+        #plot_acc[i] = acc
+        #plot_epoch[i] = i
         #save_path = saver.save(sess, "Data/Models/model{}.ckpt".format(i))
+        f.write(' '.join( ("Loss", str(loss_value), str(i), '\n' ) ) )
+        f.write(' '.join( ("Accuracy", str(acc), '\n') ) )
+        f.write("---------------\n")
     f.close()
+    print("Testing Start!\n")
+    avg_acc = 0.0
+    total = 0
+    while(batch_no*modOpts['batch_size'] < len(qa_data['training_data'])):
+        img_f, q_vec, answer = get_training_batch(batch_no, modOpts, image_feat, qa_data, load_data, model)
+        _, loss_value, acc, pred = sess.run([train_op, loss, accuracy, predictions], feed_dict={
+                lstm_image_feat:img_f,
+                lstm_q_vec:q_vec,
+                lstm_answer:answer
+            }
+        )
+        batch_no += 1
+        if args.debug:
+            for idx, p in enumerate(pred):
+                print(p, np.argmax(answer[idx]))
+                #print("Loss", loss_value, batch_no, i)
+                #print("Accuracy", acc)
+                #print("----------------\n")
+            avg_acc += acc
+            total += 1
+        #f.write(' '.join( ("Avg acc:",str(avg_acc/total),'\n') ) )
+    print("Avg Acc:",avg_acc/total)
 
 
 def get_training_batch(batch_no, opts, image_feat, qa_data, load_data, model):
