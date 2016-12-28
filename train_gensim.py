@@ -7,6 +7,7 @@ import pickle
 import parse
 from imp import reload
 from gensim.models import word2vec
+import random
 #import matplotlib.pyplot as plt
 
 def main():
@@ -170,12 +171,13 @@ def main():
     #plot_acc = np.zeros(args.epochs)
     #plot_epoch = np.zeros(args.epochs)
     for i in range(args.epochs):
+        rl=random.sample(range(1000), 1000)
         batch_no = 0
         #plot_acc = np.zeros(args.epochs)
         #plot_epoch = np.zeros(args.epochs)
         #while (batch_no*modOpts['batch_size']) < len(qa_data['training_data']):
-        while (batch_no <= 1000):
-            img_f, q_vec, answer = get_training_batch(batch_no, modOpts, image_feat, qa_data, load_data, model)
+        while (batch_no < 1000):
+            img_f, q_vec, answer = get_training_batch(rl[batch_no], modOpts, image_feat, qa_data, load_data, model)
             _, loss_value, acc, pred = sess.run([train_op, loss, accuracy, predictions], feed_dict={
                     lstm_image_feat:img_f,
                     lstm_q_vec:q_vec,
