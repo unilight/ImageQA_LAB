@@ -137,12 +137,13 @@ def main():
         # basic LSTM Cell.
         lstm_cell = tf.nn.rnn_cell.BasicLSTMCell(opts['rnn_size'], forget_bias=1.0, state_is_tuple=True)
         # lstm cell is divided into two parts (c_state, h_state)
-        init_state = lstm_cell.zero_state(opts['batch_size'], dtype=tf.float32)
-        outputs, final_state = tf.nn.dynamic_rnn(lstm_cell, X_in, initial_state=init_state, time_major=False)
-
+        cell = tf.nn.rnn_cell.MultiRNNCell([lstm_cell] * 2, state_is_tuple=True)
+        init_state = cell.zero_state(opts['batch_size'], dtype=tf.float32)
+        outputs, final_state = tf.nn.dynamic_rnn(cell, X_in, initial_state=init_state, time_major=False)
+        print(final_state)
         # output as the final results
         ###########################
-        results = tf.matmul(final_state[1], weights['hidden_output']) + biases['hidden_output']
+        results = tf.matmul(final_state[1][1], weights['hidden_output']) + biases['hidden_output']
 
         return results
     logits = LSTM(modOpts, lstm_image_feat, lstm_q_vec, weights, biases)    
@@ -156,7 +157,8 @@ def main():
     loss = tf.reduce_sum(ce)
     
     #train_op = tf.train.AdamOptimizer(args.learning_rate).minimize(loss)
-    train_op = tf.train.GradientDescentOptimizer(args.learning_rate).minimize(loss)
+    #train_op = tf.train.GradientDescentOptimizer(args.learning_rate).minimize(loss)
+    train_op = tf.train.RMSPropOptimizer(args.learning_rate).minimize(loss)
     gpu_options = tf.GPUOptions(per_process_gpu_memory_fraction=0.5)
 
     
