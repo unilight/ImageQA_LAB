@@ -56,6 +56,9 @@ class Model:
 		accuracy = tf.reduce_mean(tf.cast(correct_predictions, tf.float32)) #
 		loss = tf.reduce_sum(ce) #
 		
+		with tf.name_scope('summaries'):
+			tf.summary.scalar('loss', loss)
+
 		input_tensors = {
 			'image' : lstm_image_feat,
 			'sentence' : lstm_q_vec,

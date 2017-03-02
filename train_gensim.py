@@ -25,6 +25,8 @@ def main():
 	parser.add_argument('--epochs', type=int, default=100, help='Expochs')
 	parser.add_argument('--debug', type=bool, default=True, help='Debug')
 	parser.add_argument('--resume_model', type=str, default=None,help='Trained Model Path')
+	parser.add_argument('--logdir', type=str, default='./tensorboard/',help='TensorBoard Path')
+
 
 	f = open('result.txt', 'w')
 
@@ -70,6 +72,11 @@ def main():
 	gpu_options = tf.GPUOptions(per_process_gpu_memory_fraction=0.5)
 
 	sess = tf.InteractiveSession()
+	
+	# tensorboard merge
+	merged = tf.summary.merge_all()
+	writer = tf.summary.FileWriter(args.logdir, sess.graph)
+
 	tf.initialize_all_variables().run()
 
 	#saver = tf.train.Saver()
@@ -82,7 +89,7 @@ def main():
 		batch_no = 0
 		while (batch_no < 1000):
 			img_f, q_vec, answer = get_training_batch(rl[batch_no], modOpts, image_feat, qa_data, load_data, word2Vec)
-			_, loss_value, acc, pred = sess.run([train_op, loss, accuracy, predictions], feed_dict={
+			_, loss_value, acc, pred, summary = sess.run([train_op, loss, accuracy, predictions, merged], feed_dict={
 				input_tensors['image']:img_f,
 				input_tensors['sentence']:q_vec,
 				input_tensors['answer']:answer
@@ -90,6 +97,7 @@ def main():
 			batch_no += 1
 			if args.debug:
 				for idx, p in enumerate(pred):
+					writer.add_summary(summary, 1000*i+batch_no)
 					print(p, np.argmax(answer[idx]))
 					print("Loss", loss_value, batch_no, i)
 					print("Accuracy", acc)
@@ -102,6 +110,7 @@ def main():
 		f.write(' '.join( ("Accuracy", str(acc), '\n') ) )
 		f.write("---------------\n")
 	f.close()
+	writer.close()
 	print("Testing Start!\n")
 	avg_acc = 0.0
 	total = 0
