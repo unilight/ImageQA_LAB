@@ -1,0 +1,6 @@
+text8
+model/*
+result.txt
+*.pyc
+__pycache__/*
+*log

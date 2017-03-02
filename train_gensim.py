@@ -135,7 +135,7 @@ def main():
         # cell
         ###########################
         # basic LSTM Cell.
-        lstm_cell = tf.nn.rnn_cell.BasicLSTMCell(opts['rnn_size'], forget_bias=1.0, state_is_tuple=True)
+        lstm_cell = tf.nn.rnn_cell.LSTMCell(opts['rnn_size'], forget_bias=1.0, state_is_tuple=True, use_peepholes=True)
         # lstm cell is divided into two parts (c_state, h_state)
         cell = tf.nn.rnn_cell.MultiRNNCell([lstm_cell] * 2, state_is_tuple=True)
         init_state = cell.zero_state(opts['batch_size'], dtype=tf.float32)
