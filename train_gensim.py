@@ -66,7 +66,7 @@ def main():
 	#load_data = np.load(open('./cocoqa/vocab-dict.npy','r')
 	
 	vis_lstm_model = model.Model(modOpts)
-	input_tensors, loss, accuracy, predictions = vis_lstm_model.build_model()
+	input_tensors, loss, accuracy, predictions, idxs= vis_lstm_model.build_model()
 
 	train_op = tf.train.RMSPropOptimizer(args.learning_rate).minimize(loss)
 	gpu_options = tf.GPUOptions(per_process_gpu_memory_fraction=0.5)
@@ -84,12 +84,13 @@ def main():
 	#   saver.restore(sess, args.resume_model)
 	#plot_acc = np.zeros(args.epochs)
 	#plot_epoch = np.zeros(args.epochs)
+	
 	for i in range(args.epochs):
 		rl=random.sample(range(1000), 1000)
 		batch_no = 0
 		while (batch_no < 1000):
 			img_f, q_vec, answer = get_training_batch(rl[batch_no], modOpts, image_feat, qa_data, load_data, word2Vec)
-			_, loss_value, acc, pred, summary = sess.run([train_op, loss, accuracy, predictions, merged], feed_dict={
+			_, loss_value, acc, pred, indexes, summary = sess.run([train_op, loss, accuracy, predictions, idxs, merged], feed_dict={
 				input_tensors['image']:img_f,
 				input_tensors['sentence']:q_vec,
 				input_tensors['answer']:answer
@@ -97,11 +98,11 @@ def main():
 			batch_no += 1
 			if args.debug:
 				for idx, p in enumerate(pred):
-					writer.add_summary(summary, 1000*i+batch_no)
-					print(p, np.argmax(answer[idx]))
-					print("Loss", loss_value, batch_no, i)
-					print("Accuracy", acc)
-					print("---------------")
+					writer.add_summary(summary, i+batch_no*0.001)
+					print(p, np.argmax(answer[idx]), indexes[idx])
+				print("Loss", loss_value, batch_no, i)
+				print("Accuracy", acc)
+				print("---------------")
 			else:
 				print("Loss", loss_value, batch_no, i)
 				print("Training Accuracy", acc)
@@ -130,7 +131,8 @@ def main():
 				#print("----------------\n")
 			avg_acc += acc
 			total += 1
-		#f.write(' '.join( ("Avg acc:",str(avg_acc/total),'\n') ) )
+		#f.write(' '.join( ("Avg acc",str(avg_acc/total),'\n') ) )
+	print(sess.run(vis_lstm_model.Wemb_hidden))
 	print("Avg Acc:",avg_acc/total)
 
 

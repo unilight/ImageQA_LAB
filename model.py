@@ -29,8 +29,8 @@ class Model:
 
 		# LSTM preprocessing
 		image_emb = tf.matmul(lstm_image_feat, self.Wimg_emb) + self.Bimg_emb
-		image_emb = tf.nn.tanh(image_emb)
-		image_emb = tf.nn.dropout(image_emb, self.options['image_dropout'], name = "Dropout")
+		# image_emb = tf.nn.tanh(image_emb)
+		# image_emb = tf.nn.dropout(image_emb, self.options['image_dropout'], name = "Dropout")
 		image_emb = tf.reshape(image_emb, [-1, 1, 512])	
 		q_emb = tf.reshape(lstm_q_vec, [-1, 10, 512])
 		# Concat question to image
@@ -42,6 +42,7 @@ class Model:
 
 		# LSTM
 		lstm_cell = tf.nn.rnn_cell.BasicLSTMCell(self.options['rnn_size'], forget_bias=1.0, state_is_tuple=True)
+		# lstm_cell = tf.nn.rnn_cell.DropoutWrapper(lstm_cell, input_keep_prob=0.5)
 		# lstm cell is divided into two parts (c_state, h_state)
 		cell = tf.nn.rnn_cell.MultiRNNCell([lstm_cell] * 2, state_is_tuple=True)
 		init_state = cell.zero_state(self.options['batch_size'], dtype=tf.float32)
@@ -55,6 +56,8 @@ class Model:
 		correct_predictions = tf.equal(tf.argmax(logits,1), tf.argmax(lstm_answer,1))
 		accuracy = tf.reduce_mean(tf.cast(correct_predictions, tf.float32)) #
 		loss = tf.reduce_sum(ce) #
+
+		_,idxs = tf.nn.top_k(answer_probab, k=5)
 		
 		with tf.name_scope('summaries'):
 			tf.summary.scalar('loss', loss)
@@ -64,6 +67,6 @@ class Model:
 			'sentence' : lstm_q_vec,
 			'answer' : lstm_answer
 		} #
-		return input_tensors, loss, accuracy, predictions
+		return input_tensors, loss, accuracy, predictions, idxs
 
 
