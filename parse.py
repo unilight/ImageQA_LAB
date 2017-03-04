@@ -1,4 +1,7 @@
 import numpy as np
+import h5py
+from os.path import join
+from scipy import sparse
 import pickle
 def load_question_answer(opts):
     load_data = np.load('./cocoqa/train.npy', encoding='bytes')
@@ -28,15 +31,21 @@ def load_question_answer(opts):
         }
     print("Data",len(data['training_data']))
     return data
-def get_ques_vocab(data_dir):
-    load_ques_data = np.load(data_dir, encoding='bytes')
-    #print load_ques_data[1][0] 
-    return load_ques_data[1]
+#def get_ques_vocab(data_dir):
+#    load_ques_data = np.load(data_dir, encoding='bytes')
+#    #print load_ques_data[1][0] 
+#    return load_ques_data[1]
 
-def get_answer_vocab(data_dir):
-    load_answer_data = pickle.load(open(data_dir,'rb'))
-    #print load_answer_data['skis']
-    return load_answer_data
+def load_image_feat(data_dir):
+    image_feat = None
+    with h5py.File( join( data_dir, 'hidden_oxford_mscoco.h5'), 'r') as hf:
+        key = 'hidden7'
+        iwShape = hf[key + '_shape'][:]
+        iwData = hf[key + '_data'][:]
+        iwInd = hf[key + '_indices'][:]
+        iwPtr = hf[key + '_indptr'][:]
+        image_feat = sparse.csr_matrix((iwData, iwInd, iwPtr), shape=iwShape)
+    return image_feat
 ######################### usage #################################
 model_options = {
     'num_lstm_layers' : 1
