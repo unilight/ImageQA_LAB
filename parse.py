@@ -11,10 +11,10 @@ def load_question_answer(opts):
         for f_id in range(55):
             if load_data[0][data_id][f_id+1][0] != 0:
                 count += 1
-        if count <= 11:
+        if count <= 10:
             training_data.append({
             'image_id' : load_data[0][data_id][0][0],
-            'question' : np.zeros(55),
+            'question' : np.zeros(10),
             'answer' : load_data[1][data_id][0]
             })
             for question_id in range(10):
@@ -31,10 +31,14 @@ def load_question_answer(opts):
         }
     print("Data",len(data['training_data']))
     return data
-#def get_ques_vocab(data_dir):
-#    load_ques_data = np.load(data_dir, encoding='bytes')
-#    #print load_ques_data[1][0] 
-#    return load_ques_data[1]
+def get_ques_vocab(data_dir):
+    load_ques_data = np.load(data_dir, encoding='bytes')
+    #print load_ques_data[1][0] 
+    return load_ques_data[1]
+
+def get_answer_vocab(data_dir):
+    load_get_data = np.load(data_dir, encoding='bytes')
+    return load_get_data
 
 def load_image_feat(data_dir):
     image_feat = None

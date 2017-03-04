@@ -1,6 +1,5 @@
 import tensorflow as tf
 import model
-import data_loader
 import argparse
 import numpy as np
 import pickle
@@ -22,7 +21,7 @@ def main():
 	parser.add_argument('--data_dir', type=str, default=None, help='Data directory')
 	parser.add_argument('--batch_size', type=int, default=51, help='Batch Size')
 	parser.add_argument('--learning_rate', type=float, default=0.001, help='Batch Size')
-	parser.add_argument('--epochs', type=int, default=100, help='Expochs')
+	parser.add_argument('--epochs', type=int, default=50, help='Expochs')
 	parser.add_argument('--debug', type=bool, default=True, help='Debug')
 	parser.add_argument('--resume_model', type=str, default=None,help='Trained Model Path')
 	parser.add_argument('--logdir', type=str, default='./tensorboard/',help='TensorBoard Path')
@@ -39,7 +38,7 @@ def main():
 	qa_data = parse.load_question_answer(args)
 	#print("QA_data", len(qa_data))
 	print("Reading Image features")
-	image_feat = data_loader.load_image_feat(args.data_dir)
+	image_feat = parse.load_image_feat(args.data_dir)
 	print("Image features", image_feat.shape)
 
 	ans_map = { qa_data['answer_vocab'][ans] : ans for ans in qa_data['answer_vocab']}
