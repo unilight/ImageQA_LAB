@@ -5,7 +5,7 @@ import numpy as np
 import pickle
 import parse
 from imp import reload
-from gensim.models import word2vec
+from gensim.models import Word2Vec
 import random
 #import matplotlib.pyplot as plt
 
@@ -19,12 +19,14 @@ def main():
 	parser.add_argument('--word_emb_dropout', type=float, default=0.5, help='word_emb_dropout')
 	parser.add_argument('--image_dropout', type=float, default=0.5, help='image_dropout')
 	parser.add_argument('--data_dir', type=str, default=None, help='Data directory')
-	parser.add_argument('--batch_size', type=int, default=51, help='Batch Size')
+	parser.add_argument('--batch_size', type=int, default=49, help='Batch Size')
 	parser.add_argument('--learning_rate', type=float, default=0.001, help='Batch Size')
 	parser.add_argument('--epochs', type=int, default=50, help='Expochs')
 	parser.add_argument('--debug', type=bool, default=True, help='Debug')
 	parser.add_argument('--resume_model', type=str, default=None,help='Trained Model Path')
 	parser.add_argument('--logdir', type=str, default='./tensorboard/',help='TensorBoard Path')
+	parser.add_argument('--gensim_train', type=bool, default=False,help='Train gensim model')
+	parser.add_argument('--gensim_model', type=str, default='gensim_model',help='Gensim trained model path')
 
 
 	f = open('result.txt', 'w')
@@ -44,8 +46,14 @@ def main():
 	ans_map = { qa_data['answer_vocab'][ans] : ans for ans in qa_data['answer_vocab']}
 
 	load_data = pickle.load(open('./cocoqa/newdic', 'rb'))
-	sentences = word2vec.Text8Corpus('./text8')
-	word2Vec = word2vec.Word2Vec(sentences, size = 512, min_count = 2, workers = 4)
+
+	# Gensim Word2Vec training
+	if(args.gensim_train):
+		sentences = Word2Vec.Text8Corpus('./text8')
+		word2Vec = Word2Vec(sentences, size = 512, min_count = 2, workers = 4)
+		word2Vec.save(args.gensim_model)
+	else:
+		word2Vec = Word2Vec.load(args.gensim_model)
 
 	modOpts = {
 		# batch_size should not be in here
@@ -83,7 +91,6 @@ def main():
 	#   saver.restore(sess, args.resume_model)
 	#plot_acc = np.zeros(args.epochs)
 	#plot_epoch = np.zeros(args.epochs)
-	
 	for i in range(args.epochs):
 		rl=random.sample(range(1000), 1000)
 		batch_no = 0
@@ -124,7 +131,7 @@ def main():
 		batch_no += 1
 		if args.debug:
 			for idx, p in enumerate(pred):
-				print(p, np.argmax(answer[idx]))
+				print(idx, p, np.argmax(answer[idx]))
 				#print("Loss", loss_value, batch_no, i)
 				#print("Accuracy", acc)
 				#print("----------------\n")

@@ -11,10 +11,10 @@ def load_question_answer(opts):
         for f_id in range(55):
             if load_data[0][data_id][f_id+1][0] != 0:
                 count += 1
-        if count <= 10:
+        if count <= 55:
             training_data.append({
             'image_id' : load_data[0][data_id][0][0],
-            'question' : np.zeros(10),
+            'question' : np.zeros(55),
             'answer' : load_data[1][data_id][0]
             })
             for question_id in range(10):
