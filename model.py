@@ -32,7 +32,7 @@ class Model:
 		# image_emb = tf.nn.tanh(image_emb)
 		# image_emb = tf.nn.dropout(image_emb, self.options['image_dropout'], name = "Dropout")
 		image_emb = tf.reshape(image_emb, [-1, 1, 512])	
-		q_emb = tf.reshape(lstm_q_vec, [-1, 10, 512])
+		q_emb = tf.reshape(lstm_q_vec, [-1, self.options['lstm_steps']-1, 512])
 		# Concat question to image
 		X = tf.concat(1, [image_emb, q_emb], name = "finalX")
 		X = tf.reshape(X, [-1, self.options['embedding_size']])

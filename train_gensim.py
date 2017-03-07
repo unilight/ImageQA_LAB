@@ -28,7 +28,6 @@ def main():
 	parser.add_argument('--gensim_train', type=bool, default=False,help='Train gensim model')
 	parser.add_argument('--gensim_model', type=str, default='gensim_model',help='Gensim trained model path')
 
-
 	f = open('result.txt', 'w')
 
 	args = parser.parse_args()
