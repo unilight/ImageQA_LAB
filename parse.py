@@ -19,7 +19,10 @@ def load_question_answer(opts):
             'answer' : load_data[1][data_id][0]
             })
             for question_id in range(55):
-                training_data[-1]['question'][question_id] = load_data[0][data_id][question_id+1][0]
+                if question_id < count:
+                    training_data[-1]['question'][55-count+question_id] = load_data[0][data_id][question_id+1][0]
+                else:
+                    training_data[-1]['question'][question_id-count] = load_data[0][data_id][question_id+1][0]
         else:
             continue
     ques_vocab = get_ques_vocab('./cocoqa/vocab-dict.npy')

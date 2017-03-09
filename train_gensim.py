@@ -5,7 +5,7 @@ import numpy as np
 import pickle
 import parse
 from imp import reload
-from gensim.models import Word2Vec
+from gensim.models import word2vec
 import random
 #import matplotlib.pyplot as plt
 
@@ -48,11 +48,11 @@ def main():
 
 	# Gensim Word2Vec training
 	if(args.gensim_train):
-		sentences = Word2Vec.Text8Corpus('./text8')
-		word2Vec = Word2Vec(sentences, size = 512, min_count = 2, workers = 4)
-		word2Vec.save(args.gensim_model)
+		sentences = word2vec.Text8Corpus('./text8')
+		w2v_model = word2vec.Word2Vec(sentences, size = 512, min_count = 2, workers = 4)
+		w2v_model.save(args.gensim_model)
 	else:
-		word2Vec = Word2Vec.load(args.gensim_model)
+		w2v_model = word2vec.Word2Vec.load(args.gensim_model)
 
 	modOpts = {
 		# batch_size should not be in here
@@ -94,7 +94,7 @@ def main():
 		rl=random.sample(range(1000), 1000)
 		batch_no = 0
 		while (batch_no < 1000):
-			img_f, q_vec, answer = get_training_batch(rl[batch_no], modOpts, image_feat, qa_data, load_data, word2Vec)
+			img_f, q_vec, answer = get_training_batch(rl[batch_no], modOpts, image_feat, qa_data, load_data, w2v_model)
 			_, loss_value, acc, pred, indexes, summary = sess.run([train_op, loss, accuracy, predictions, idxs, merged], feed_dict={
 				input_tensors['image']:img_f,
 				input_tensors['sentence']:q_vec,
@@ -121,7 +121,7 @@ def main():
 	avg_acc = 0.0
 	total = 0
 	while(batch_no*modOpts['batch_size'] < len(qa_data['training_data'])):
-		img_f, q_vec, answer = get_training_batch(batch_no, modOpts, image_feat, qa_data, load_data, word2Vec)
+		img_f, q_vec, answer = get_training_batch(batch_no, modOpts, image_feat, qa_data, load_data, w2v_model)
 		_, loss_value, acc, pred = sess.run([train_op, loss, accuracy, predictions], feed_dict={
 			input_tensors['image']:img_f,
 			input_tensors['sentence']:q_vec,
