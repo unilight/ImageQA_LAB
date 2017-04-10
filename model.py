@@ -30,26 +30,26 @@ class Model:
 		# LSTM preprocessing
 		image_emb = tf.matmul(lstm_image_feat, self.Wimg_emb) + self.Bimg_emb
 		# image_emb = tf.nn.tanh(image_emb)
-		# image_emb = tf.nn.dropout(image_emb, self.options['image_dropout'], name = "Dropout")
+		#image_emb = tf.nn.dropout(image_emb, 0.3, noise_shape=None, seed=None, name=None)
 		image_emb = tf.reshape(image_emb, [-1, 1, 512])	
 		q_emb = tf.reshape(lstm_q_vec, [-1, self.options['lstm_steps']-1, 512])
 		# Concat question to image
-		X = tf.concat(1, [image_emb, q_emb], name = "finalX")
+		X = tf.concat( [q_emb, image_emb], 1, name = "finalX")
 		X = tf.reshape(X, [-1, self.options['embedding_size']])
 
 		X_in = tf.matmul(X, self.Wemb_hidden) + self.Bemb_hidden
 		X_in = tf.reshape(X_in, [-1, self.options['lstm_steps'], self.options['rnn_size']])
 
 		# LSTM
-		lstm_cell = tf.nn.rnn_cell.BasicLSTMCell(self.options['rnn_size'], forget_bias=1.0, state_is_tuple=True)
-		# lstm_cell = tf.nn.rnn_cell.DropoutWrapper(lstm_cell, input_keep_prob=0.5)
+		lstm_cell = tf.contrib.rnn.BasicLSTMCell(self.options['rnn_size'], forget_bias=1.0, state_is_tuple=True)
+		#lstm_cell = tf.nn.rnn_cell.DropoutWrapper(lstm_cell, input_keep_prob=0.5)
 		# lstm cell is divided into two parts (c_state, h_state)
-		cell = tf.nn.rnn_cell.MultiRNNCell([lstm_cell] * 2, state_is_tuple=True)
+		cell = tf.contrib.rnn.MultiRNNCell([lstm_cell] * 2, state_is_tuple=True)
 		init_state = cell.zero_state(self.options['batch_size'], dtype=tf.float32)
 		outputs, final_state = tf.nn.dynamic_rnn(cell, X_in, initial_state=init_state, time_major=False)
 
 		logits = tf.matmul(final_state[1][1], self.Whidden_ans) + self.Bhidden_ans
-		ce = tf.nn.softmax_cross_entropy_with_logits(logits, lstm_answer)
+		ce = tf.nn.softmax_cross_entropy_with_logits( logits=logits, labels=lstm_answer)
 		answer_probab = tf.nn.softmax(logits)
 
 		predictions = tf.argmax(answer_probab,1) #

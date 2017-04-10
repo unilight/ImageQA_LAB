@@ -20,8 +20,8 @@ def main():
 	parser.add_argument('--image_dropout', type=float, default=0.5, help='image_dropout')
 	parser.add_argument('--data_dir', type=str, default=None, help='Data directory')
 	parser.add_argument('--batch_size', type=int, default=49, help='Batch Size')
-	parser.add_argument('--learning_rate', type=float, default=0.001, help='Batch Size')
-	parser.add_argument('--epochs', type=int, default=50, help='Expochs')
+	parser.add_argument('--learning_rate', type=float, default=0.002, help='Batch Size')
+	parser.add_argument('--epochs', type=int, default=70, help='Expochs')
 	parser.add_argument('--debug', type=bool, default=True, help='Debug')
 	parser.add_argument('--resume_model', type=str, default=None,help='Trained Model Path')
 	parser.add_argument('--logdir', type=str, default='./tensorboard/',help='TensorBoard Path')
@@ -37,7 +37,6 @@ def main():
 
 	print("Reading QA DATA")
 	qa_data = parse.load_question_answer(args)
-	#print("QA_data", len(qa_data))
 	print("Reading Image features")
 	image_feat = parse.load_image_feat(args.data_dir)
 	print("Image features", image_feat.shape)
@@ -91,9 +90,9 @@ def main():
 	#plot_acc = np.zeros(args.epochs)
 	#plot_epoch = np.zeros(args.epochs)
 	for i in range(args.epochs):
-		rl=random.sample(range(1000), 1000)
+		rl=random.sample(range(1200), 1200)
 		batch_no = 0
-		while (batch_no < 1000):
+		while (batch_no < 1200):
 			img_f, q_vec, answer = get_training_batch(rl[batch_no], modOpts, image_feat, qa_data, load_data, w2v_model)
 			_, loss_value, acc, pred, indexes, summary = sess.run([train_op, loss, accuracy, predictions, idxs, merged], feed_dict={
 				input_tensors['image']:img_f,
