@@ -34,7 +34,7 @@ class Model:
 		image_emb = tf.reshape(image_emb, [-1, 1, 512])	
 		q_emb = tf.reshape(lstm_q_vec, [-1, self.options['lstm_steps']-1, 512])
 		# Concat question to image
-		X = tf.concat( [q_emb, image_emb], 1, name = "finalX")
+		X = tf.concat( [image_emb, q_emb], 1, name = "finalX")
 		X = tf.reshape(X, [-1, self.options['embedding_size']])
 
 		X_in = tf.matmul(X, self.Wemb_hidden) + self.Bemb_hidden

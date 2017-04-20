@@ -8,23 +8,17 @@ def load_question_answer(opts):
     load_data = np.load('./cocoqa/train.npy', encoding='bytes')
     training_data = []
     for data_id in range(len(load_data[0])):
-        count = 0
-        for f_id in range(55):
-            if load_data[0][data_id][f_id+1][0] != 0:
-                count += 1
-        if count <= 55:
-            training_data.append({
-            'image_id' : load_data[0][data_id][0][0],
-            'question' : np.zeros(55),
-            'answer' : load_data[1][data_id][0]
-            })
-            for question_id in range(55):
-                if question_id < count:
-                    training_data[-1]['question'][55-count+question_id] = load_data[0][data_id][question_id+1][0]
-                else:
-                    training_data[-1]['question'][question_id-count] = load_data[0][data_id][question_id+1][0]
-        else:
-            continue
+        training_data.append({
+        'image_id' : load_data[0][data_id][0][0],
+        'question' : np.zeros(55),
+        'answer' : load_data[1][data_id][0]
+        })
+        for question_id in range(55):
+            training_data[-1]['question'][question_id] = load_data[0][data_id][question_id+1][0]
+                #if question_id < count:
+                #    training_data[-1]['question'][55-count+question_id] = load_data[0][data_id][question_id+1][0]
+                #else:
+                #    training_data[-1]['question'][question_id-count] = load_data[0][data_id][question_id+1][0]
     ques_vocab = get_ques_vocab('./cocoqa/vocab-dict.npy')
     ans_vocab = get_answer_vocab('./cocoqa/ansdict.pkl')
     data = {
