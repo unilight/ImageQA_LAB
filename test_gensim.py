@@ -21,7 +21,7 @@ def main():
     parser.add_argument('--data_dir', type=str, default=None, help='Data directory')
     parser.add_argument('--batch_size', type=int, default=49, help='Batch Size')
     parser.add_argument('--learning_rate', type=float, default=0.001, help='Batch Size')
-    parser.add_argument('--epochs', type=int, default=65, help='Expochs')
+    parser.add_argument('--epochs', type=int, default=70, help='Expochs')
     parser.add_argument('--debug', type=bool, default=True, help='Debug')
     parser.add_argument('--resume_model', type=str, default=None,help='Trained Model Path')
     parser.add_argument('--logdir', type=str, default='./tensorboard/',help='TensorBoard Path')
@@ -35,8 +35,8 @@ def main():
         print('Specify data directory path!')
         exit()
 
-    print("Reading QA DATA")
-    qa_data = parse.load_question_answer(args)
+    print("Reading Testing DATA")
+    qa_data = parse.loadtest_question_answer(args)
     print("Reading Image features")
     image_feat = parse.load_image_feat(args.data_dir)
     print("Image features", image_feat.shape)
@@ -66,95 +66,56 @@ def main():
         'q_vocab_size' : len(qa_data['question_vocab']),
         'ans_vocab_size' : len(qa_data['answer_vocab'])
     }
-    #sentences = word2vec.Text8Corpus('./text8')
-    #model = word2vec.Word2Vec(sentences, size = 512, min_count = 2, workers = 4)
-    #load_data = np.load(open('./cocoqa/vocab-dict.npy','r')
+    
     
     vis_lstm_model = model.Model(modOpts)
     input_tensors, loss, accuracy, predictions, idxs= vis_lstm_model.build_model()
 
     train_op = tf.train.RMSPropOptimizer(args.learning_rate).minimize(loss)
     gpu_options = tf.GPUOptions(per_process_gpu_memory_fraction=0.5)
-        
-        #saver
-    saver = tf.train.Saver()
-        #saver = tf.train.Saver()
-
-    sess = tf.InteractiveSession()
     
+    new_saver = tf.train.Saver()
+    sess = tf.InteractiveSession()
+    new_saver.restore(sess, 'model/model.ckpt')
+    #new_saver = tf.train.import_meta_graph('model/model.ckpt.meta')
+    #new_saver.restore(sess, tf.train.latest_checkpoint('./model/'))
+    #sess.run(tf.global_variables_initializer())
+
+    #print('Bimg_emb',sess.run(vis_lstm_model.Bimg_emb))
     # tensorboard merge
     merged = tf.summary.merge_all()
     writer = tf.summary.FileWriter(args.logdir, sess.graph)
 
-    tf.initialize_all_variables().run()
-
-    #saver = tf.train.Saver()
-    #if args.resume_model:
-    #   saver.restore(sess, args.resume_model)
-    #plot_acc = np.zeros(args.epochs)
-    #plot_epoch = np.zeros(args.epochs)
-    for i in range(args.epochs):
-        rl=random.sample(range(1446), 1446)
-        batch_no = 0
-        LOSS = 0.0
-        ACC = 0.0
-        while (batch_no*modOpts['batch_size'] < len(qa_data['training_data'])):
-            img_f, q_vec, answer = get_training_batch(rl[batch_no], modOpts, image_feat, qa_data, load_data, w2v_model)
-            _, loss_value, acc, pred, indexes, summary = sess.run([train_op, loss, accuracy, predictions, idxs, merged], feed_dict={
-                input_tensors['image']:img_f,
-                input_tensors['sentence']:q_vec,
-                input_tensors['answer']:answer
-            })
-            batch_no += 1
-            ACC += acc
-            LOSS += loss_value
-            if args.debug:
-                for idx, p in enumerate(pred):
-                    writer.add_summary(summary, i+batch_no*0.001)
-                    print(p, np.argmax(answer[idx]), indexes[idx])
-                print("Loss", loss_value, batch_no, i)
-                print("Accuracy", acc)
-                print("---------------")
-            else:
-                print("Loss", loss_value, batch_no, i)
-                print("Training Accuracy", acc)
-        #save_path = saver.save(sess, "Data/Models/model{}.ckpt".format(i))
-        f.write(' '.join( ("Loss", str(LOSS/1446), str(i), '\n' ) ) )
-        f.write(' '.join( ("Accuracy", str(ACC/1446), '\n') ) )
-        f.write("---------------\n")
-    f.close()
-    writer.close()
-    save_path = saver.save(sess, "./model/model65.ckpt")
-    print('save path:',save_path)
-    print('Bimg_emb:',sess.run(vis_lstm_model.Bimg_emb))
-        
+    #sess.run(tf.global_variables_initializer())
+    '''all_vars = tf.trainable_variables()
+    for v in all_vars:
+        print('%s with value %s' % (v.name, sess.run(v)))
     '''
     print("Testing Start!\n")
     avg_acc = 0.0
     total = 0
-    while(batch_no*modOpts['batch_size'] < len(qa_data['training_data'])):
+    batch_no = 0
+    while(batch_no*modOpts['batch_size'] < len(qa_data['testing_data'])):
         img_f, q_vec, answer = get_training_batch(batch_no, modOpts, image_feat, qa_data, load_data, w2v_model)
         _, loss_value, acc, pred = sess.run([train_op, loss, accuracy, predictions], feed_dict={
             input_tensors['image']:img_f,
             input_tensors['sentence']:q_vec,
             input_tensors['answer']:answer
         })
+        for idx, p in enumerate(pred):
+            print(idx, p, np.argmax(answer[idx]))
+            #print("Loss", loss_value, batch_no, i)
+            #print("Accuracy", acc)
+            #print("----------------\n")
         batch_no += 1
-        if args.debug:
-            for idx, p in enumerate(pred):
-                print(idx, p, np.argmax(answer[idx]))
-                #print("Loss", loss_value, batch_no, i)
-                #print("Accuracy", acc)
-                #print("----------------\n")
-            avg_acc += acc
-            total += 1
+        avg_acc += acc
+        total += 1
         #f.write(' '.join( ("Avg acc",str(avg_acc/total),'\n') ) )
     print(sess.run(vis_lstm_model.Wemb_hidden))
     print("Avg Acc:",avg_acc/total)
-    '''
     
 def get_training_batch(batch_no, opts, image_feat, qa_data, load_data, model):
-    qa = qa_data['training_data']
+    qa = qa_data['testing_data']
 
     si = (batch_no * opts['batch_size'])%len(qa)
     ei = min(len(qa), si + opts['batch_size'])
