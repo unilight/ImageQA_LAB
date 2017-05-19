@@ -39,8 +39,6 @@ def main():
     qa_data = parse.load_question_answer(args)
     print("Reading Image features")
     image_feat = parse.load_image_feat(args.data_dir)
-    print("Image features", image_feat.shape)
-
     ans_map = { qa_data['answer_vocab'][ans] : ans for ans in qa_data['answer_vocab']}
 
     load_data = pickle.load(open('./cocoqa/newdic', 'rb'))
@@ -74,7 +72,7 @@ def main():
     input_tensors, loss, accuracy, predictions, idxs= vis_lstm_model.build_model()
 
     train_op = tf.train.RMSPropOptimizer(args.learning_rate).minimize(loss)
-    gpu_options = tf.GPUOptions(per_process_gpu_memory_fraction=0.5)
+    gpu_options = tf.GPUOptions(per_process_gpu_memory_fraction=0.8)
         
         #saver
     saver = tf.train.Saver()
@@ -93,13 +91,18 @@ def main():
     #   saver.restore(sess, args.resume_model)
     #plot_acc = np.zeros(args.epochs)
     #plot_epoch = np.zeros(args.epochs)
+    #1446
+    indices = np.arange(1446)
+    np.random.shuffle(indices)
     for i in range(args.epochs):
-        rl=random.sample(range(1446), 1446)
+        print('Now epoch:',i,'\n')
         batch_no = 0
         LOSS = 0.0
+        VAL_LOSS = 0.0
         ACC = 0.0
-        while (batch_no*modOpts['batch_size'] < len(qa_data['training_data'])):
-            img_f, q_vec, answer = get_training_batch(rl[batch_no], modOpts, image_feat, qa_data, load_data, w2v_model)
+        VAL_ACC = 0.0
+        while (batch_no*modOpts['batch_size'] < 1300*modOpts['batch_size']):
+            img_f, q_vec, answer = get_training_batch(indices[batch_no], modOpts, image_feat, qa_data, load_data, w2v_model)
             _, loss_value, acc, pred, indexes, summary = sess.run([train_op, loss, accuracy, predictions, idxs, merged], feed_dict={
                 input_tensors['image']:img_f,
                 input_tensors['sentence']:q_vec,
@@ -108,6 +111,7 @@ def main():
             batch_no += 1
             ACC += acc
             LOSS += loss_value
+            '''
             if args.debug:
                 for idx, p in enumerate(pred):
                     writer.add_summary(summary, i+batch_no*0.001)
@@ -118,16 +122,42 @@ def main():
             else:
                 print("Loss", loss_value, batch_no, i)
                 print("Training Accuracy", acc)
+            '''
         #save_path = saver.save(sess, "Data/Models/model{}.ckpt".format(i))
-        f.write(' '.join( ("Loss", str(LOSS/1446), str(i), '\n' ) ) )
-        f.write(' '.join( ("Accuracy", str(ACC/1446), '\n') ) )
+        f.write(' '.join( ("Loss", str(LOSS/1300), str(i), '\n' ) ) )
+        f.write(' '.join( ("Accuracy", str(ACC/1300), '\n') ) )
         f.write("---------------\n")
+        while (batch_no*modOpts['batch_size'] < len(qa_data['training_data'])):
+            img_f, q_vec, answer = get_training_batch(indices[batch_no], modOpts, image_feat, qa_data, load_data, w2v_model)
+            _, loss_value, acc, pred, indexes, summary = sess.run([train_op, loss, accuracy, predictions, idxs, merged], feed_dict={
+                input_tensors['image']:img_f,
+                input_tensors['sentence']:q_vec,
+                input_tensors['answer']:answer
+            })
+            batch_no += 1
+            VAL_ACC += acc
+            VAL_LOSS += loss_value
+            '''
+            if args.debug:
+                for idx, p in enumerate(pred):
+                    writer.add_summary(summary, i+batch_no*0.001)
+                    print(p, np.argmax(answer[idx]), indexes[idx])
+                print("Loss", loss_value, batch_no, i)
+                print("Accuracy", acc)
+                print("---------------")
+            else:
+                print("Loss", loss_value, batch_no, i)
+                print("Training Accuracy", acc)
+            '''
+        print('Loss:',VAL_LOSS/146, ' epoch: ',i)
+        print("Accuracy", VAL_ACC/146)
+        print('-----------------------\n')
     f.close()
     writer.close()
     save_path = saver.save(sess, "./model/model65.ckpt")
     print('save path:',save_path)
     print('Bimg_emb:',sess.run(vis_lstm_model.Bimg_emb))
-        
+    
     '''
     print("Testing Start!\n")
     avg_acc = 0.0
